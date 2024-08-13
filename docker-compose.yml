@@ -1,19 +1,35 @@
 ---
 services:
 
-  mariadb:
+  sql-primary:
     container_name: sql-primary
     image: mariadb:11.4
     restart: unless-stopped
     volumes:
       - /srv/docker/sql-primary:/var/lib/mysql
-      - shared-data:/data/backup
-      - ./dump.sh:/dump.sh
+      - ./conf_primary.cnf:/etc/mysql/conf.d/conf_primary.cnf
     environment:
-      MARIADB_ROOT_PASSWORD: toto
-      MARIADB_DATABASE: wpdb
-      MARIADB_USER: xav
-      MARIADB_PASSWORD: titi
+      - MARIADB_ROOT_PASSWORD=toto
+      - MARIADB_DATABASE=wpdb
+      - MARIADB_USER=xav
+      - MARIADB_PASSWORD=titi
+      - MARIADB_REPLICATION_USER=replication_user
+      - MARIADB_REPLICATION_PASSWORD=titi
+    networks:
+      - db-network
+
+  sql-replica01:
+    container_name: sql-replica01
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=toto
+      - MARIADB_REPLICATION_USER=replication_user
+      - MARIADB_REPLICATION_PASSWORD=titi
+      - MARIADB_MASTER_HOST=sql-primary
+    volumes:
+      - /srv/docker/sql-replica:/var/lib/mysql
+      - ./conf_replica.cnf:/etc/mysql/conf.d/conf_replica.cnf
     networks:
       - db-network
 
@@ -24,7 +40,7 @@ services:
     ports:
       - 8080:80
     environment:
-      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_HOST: sql-primary:3306
       WORDPRESS_DB_USER: xav
       WORDPRESS_DB_PASSWORD: titi
       WORDPRESS_DB_NAME: wpdb
@@ -34,24 +50,9 @@ services:
       - db-network
       - front-network
 
-#  mariadb2:
-#    container_name: sql-svg
-#    image: mariadb:11.4
-#    restart: unless-stopped
-#    volumes:
-#      - /srv/docker/dbdata2:/var/lib/mysql
-#      - shared-data:/data/backup
-#      - ./restore.sh:/restore.sh
-#    environment:
-#      MARIADB_ROOT_PASSWORD: toto
-#      MARIADB_DATABASE: mydb
-#      MARIADB_USER: xav
-#      MARIADB_PASSWORD: titi
-
 volumes:
   shared-data:
 
 networks:
   db-network:
-    internal: true
   front-network:
