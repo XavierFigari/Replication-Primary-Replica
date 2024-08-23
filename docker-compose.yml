@@ -29,7 +29,22 @@ services:
       - MARIADB_MASTER_HOST=sql-primary
     volumes:
       - /srv/docker/sql-replica:/var/lib/mysql
-      - ./conf_replica.cnf:/etc/mysql/conf.d/conf_replica.cnf
+      - ./conf_replica1.cnf:/etc/mysql/conf.d/conf_replica.cnf
+    networks:
+      - db-network
+
+  sql-replica02:
+    container_name: sql-replica02
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=toto
+      - MARIADB_REPLICATION_USER=replication_user
+      - MARIADB_REPLICATION_PASSWORD=titi
+      - MARIADB_MASTER_HOST=sql-primary
+    volumes:
+      - /srv/docker/sql-replica:/var/lib/mysql
+      - ./conf_replica2.cnf:/etc/mysql/conf.d/conf_replica.cnf
     networks:
       - db-network
 
