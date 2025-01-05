@@ -6,19 +6,13 @@ Database replication using Primary/Replica scheme
 - `sql-replica01` : replica database
 - `wordpress` : holds the Wordpress application
 
-Database replication using Primary/Replica scheme
+To start the containers, simply run in the same directory as docker-compose.yml :
 
-Docker Containers
------------------
+`docker compose up -d`
 
-*   sql-primary : primary database
-*   sql-replica01 : replica database
-*   wordpress : holds the Wordpress application
+## Configure the Primary db
 
-Configure the Primary db
-------------------------
-
-Créer un fichier de conf `conf_primary.cnf` à copier dans `/etc/my.cnf`
+Create a configuration file `conf_primary.cnf` that will be copied to `/etc/my.cnf`
 
 ```text-plain
 [mariadb]
@@ -28,9 +22,9 @@ log-basename=primary1
 binlog-format=mixed
 ```
 
-Dans docker-compose :
+Inside docker-compose, give access to this file with a *volume* definition :
 
-```text-plain
+```yaml
   mariadb:
     container_name: sql-primary
     image: mariadb:11.4
@@ -40,29 +34,28 @@ Dans docker-compose :
       - ./conf_primary.cnf:/etc/my.cnf
 ```
 
-Pour créer le replication user, on peut :
+To create the replication user, we can :
 
-*   soit créer un fichier SQL `create_replication_user.sql` et l'appeler dans le docker-compose dans le init script :
+*   Either create an SQL file `create_replication_user.sql` and call it from docker-compose in the init script :
 
-    ```text-plain
+    ```SQL
     CREATE USER 'replication_user'@'%' IDENTIFIED BY 'titi';
     GRANT REPLICATION SLAVE ON *.* TO 'replication_user'@'%';
     ```
 
-*   soit mettre directement les variables d'environnement suivantes dans le Docker compose de l'image MariaDB (partie sql-primary) :
+*   or set directly the environnement variables inside docker-compose, for the MariaDB image (sql-primary) :
 
-    ```text-plain
+    ```yaml
           - MARIADB_REPLICATION_USER=replication_user
           - MARIADB_REPLICATION_PASSWORD=titi
     ```
 
 
-Configuring the MariaDB Replica
---------------------------------
+## Configuring the MariaDB Replica
 
-Idem, on pourrait créer un fichier SQL et le charger au démarrage du container :
+Again, we could create an SQL file and execute it at container boot :
 
-```text-x-sql
+```SQL
 CHANGE MASTER TO
     MASTER_HOST='sql-primary',
     MASTER_USER='replication_user',
@@ -70,9 +63,9 @@ CHANGE MASTER TO
     MASTER_USE_GTID = slave_pos;
 ```
 
-Mais c'est plus simple de mettre des variables d'environnement dans le Docker Compose :
+But it's much simpler to set environment variables in the docker-compose file :
 
-```text-x-dockerfile
+```yaml
   sql-replica01:
     container_name: sql-replica01
     image: mariadb:11.4
@@ -84,27 +77,25 @@ Mais c'est plus simple de mettre des variables d'environnement dans le Docker Co
       - MARIADB_MASTER_HOST=sql-primary
 ```
 
-Running the replica on the slave
---------------------------------
+## Running the replica on the slave
 
-Si on a pris l'option “fichiers SQL à charger à l'init”, il faut faire en plus dans le slave :
+If you've selected the “SQL files to be loaded at init” option, you'll also need to do the following in the slave :
 
-```text-x-sql
+```sql
 START SLAVE;
 SHOW SLAVE STATUS \G
 ```
 
-Sinon, si on a défini `MARIADB_MASTER_HOST` dans le Docker Compose, il le fait tout seul à notre place.
+Otherwise, if you have defined `MARIADB_MASTER_HOST` in the Docker Compose file, it will do it for you.
 
 If replication is working correctly, both the values of `Slave_IO_Running` and `Slave_SQL_Running` should be `Yes`:
 
-```text-x-sql
+```sql
 Slave_IO_Running: Yes
 Slave_SQL_Running: Yes
 ```
 
-Make sure it works
-------------------
+## Make sure it works
 
 *   create a post on Wordpress web interface (http://localhost:8080) : Titre du post : “Il fait beau”
 *   check database on Primary
@@ -112,11 +103,11 @@ Make sure it works
 
 Example :
 
-```text-plain
-> docker exec -it sql-replica01 mariadb -u root -ptoto -e 'use wpdb; select post_title from wp_posts;'
+```bash
+docker exec -it sql-replica01 mariadb -u root -ptoto -e 'use wpdb; select post_title from wp_posts;'
 ```
 
-On doit avoir la même chose des deux côtés (database Primary et Replica) :
+We must have the same thing on both sides (Primary and Replica databases):
 
 ```text-plain
 > docker exec -it sql-replica01 mariadb -u root -ptoto -e 'use wpdb; select post_title from wp_posts;'
